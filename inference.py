@@ -96,11 +96,11 @@ def generate_video(stft, args,root,f,name):
 	wav = librosa.istft(complex_arr, hop_length=hp.hparams.hop_size_den, win_length=hp.hparams.win_size_den)
 	print(wav.shape,"generated")
 	base = os.path.basename(args.input)
-	copy = root
-	copy =  os.path.basename(os.path.dirname(copy))
+	#copy = root
+	#copy =  os.path.basename(os.path.dirname(copy))
 	# Create the folder to save the results
 	result_dir =os.path.join(args.result_dir, os.path.basename(root))
-	result_dir =os.path.join(result_dir,copy)
+	#result_dir =os.path.join(result_dir,copy)
 	
 	print(result_dir,args.result_dir)
 	if not os.path.exists(result_dir):
