@@ -6,19 +6,22 @@ from tqdm import tqdm
 import audio.audio_utils as audio
 import audio.hparams as hp 
 from models import *
+import matplotlib.image
 import torch
+import cv2
+import uuid
 
 # Initialize the global variables
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu") 	
 sampling_rate = 16000
 
-def load_wav(args):
-
+def load_wav(path,video_file):
+	video = os.path.join(path,video_file)
 	wav_file  = 'tmp.wav';
 
 	subprocess.call('ffmpeg -hide_banner -loglevel panic -threads 1 -y -i %s -async 1 -ac 1 -vn \
-					-acodec pcm_s16le -ar 16000 %s' % (args.input, wav_file), shell=True)
-
+					-acodec pcm_s16le -ar 16000 %s' % (video, wav_file), shell=True)
+	
 	wav = audio.load_wav(wav_file, sampling_rate)
 
 	os.remove("tmp.wav")
@@ -80,7 +83,7 @@ def get_segmented_mels(start_idx, noisy_wav):
     return mels
 
 
-def generate_video(stft, args):
+def generate_video(stft, args,root,f,name):
 
 	# Reconstruct the predicted wav
 	mag = stft[:257, :]
@@ -91,36 +94,48 @@ def generate_video(stft, args):
 	recon_mag = audio.amp_from_db(denorm_mag)
 	complex_arr = audio.make_complex(recon_mag, denorm_phase)
 	wav = librosa.istft(complex_arr, hop_length=hp.hparams.hop_size_den, win_length=hp.hparams.win_size_den)
-		
+	print(wav.shape,"generated")
+	base = os.path.basename(args.input)
+	copy = root
+	copy =  os.path.basename(os.path.dirname(copy))
 	# Create the folder to save the results
-	result_dir = args.result_dir
+	result_dir =os.path.join(args.result_dir, os.path.basename(root))
+	result_dir =os.path.join(result_dir,copy)
+	
+	print(result_dir,args.result_dir)
 	if not os.path.exists(result_dir):
 		os.makedirs(result_dir)
 
 	# Save the wav file
-	audio_output = os.path.join(result_dir, 'result.wav')
+
+	audio_output = os.path.join(result_dir, result_dir,f.split(".")[0]+"_result.wav")
 	librosa.output.write_wav(audio_output, wav, sampling_rate)
 
 	print("Saved the denoised audio file:", audio_output)
 
 	# Save the video output file if the input is a video file
-	if args.input.split('.')[1] in ['wav', 'mp3']:
+	if f.split('.')[1] in ['wav', 'mp3']:
+		audio_ = os.path.join(result_dir,f.split(".")[0]+".wav")
+		librosa.output.write_wav(audio_, wav, sampling_rate)
+
 		return
 	else:
+		#print("Hi")
 		no_sound_video = os.path.join(result_dir, 'result_nosouund.mp4')
-		subprocess.call('ffmpeg -hide_banner -loglevel panic -i %s -c copy -an -strict -2 %s' % (args.input, no_sound_video), shell=True)
+		subprocess.call('ffmpeg -hide_banner -loglevel panic -i %s -c copy -an -strict -2 %s' % (os.path.join(root,f), no_sound_video), shell=True)
 
-		video_output_mp4 = os.path.join(result_dir, 'result.mp4')
+		video_output_mp4 = os.path.join(result_dir, f)
 		if os.path.exists(video_output_mp4):
 			os.remove(video_output_mp4)
 		
 		subprocess.call('ffmpeg -hide_banner -loglevel panic -y -i %s -i %s -strict -2 -q:v 1 %s' % 
 						(audio_output, no_sound_video, video_output_mp4), shell=True)
+		subprocess.call('ffmpeg -hide_banner -loglevel panic -y -i %s -i %s -strict -2 -q:v 1 %s' %(audio_output, name, video_output_mp4.split(".")[0]+"_faces.mp4"), shell=True)
 
 		os.remove(no_sound_video)
 
 		print("Saved the denoised video file:", video_output_mp4)
-
+		os.remove(audio_output)
 		return
 
 
@@ -143,7 +158,6 @@ def load_model(args):
 		ckpt[k] = checkpoint['state_dict'][key]
 	model.load_state_dict(ckpt)	
 	model = model.to(device)
-
 	return model.eval()
 
 def load_lipsync_model(args):
@@ -167,122 +181,266 @@ def load_lipsync_model(args):
 
 	return lipsync_student.eval()
 
-
 def predict(args):
-
-	# Load the input wav
-	inp_wav = load_wav(args)
-	print("Input wav: ", inp_wav.shape)
-	
-	total_steps = inp_wav.shape[0]
-
-	# Get the windows of 1 second wav step segments with a small overlap
-	id_windows = [range(i, i + hp.hparams.wav_step_size) for i in range(1280, total_steps, 
-				  hp.hparams.wav_step_size - hp.hparams.wav_step_overlap) if (i + hp.hparams.wav_step_size <= total_steps)]
-
+	print("input:",args.input)
 	# Load the student lipsync model
 	lipsync_student = load_lipsync_model(args)
-
 	# Load the model
 	model = load_model(args)
+	for root, dirs, files in os.walk(args.input):
+		#print("files:",files)
+		if len(files)==0:
+			continue
+		for f in files:
+			# Load the input wav
+			#print("file:",os.path.join(root,f))
+			try:
+				inp_wav = load_wav(root,f)
+				print("Input wav: ", inp_wav.shape)
+			except:
+				continue
 
-	generated_stft = None
-	all_spec_batch = []
-	all_mel_batch = []
-	skip=False
-	for i, window in enumerate(id_windows):
 
-		start_idx = window[0]
-		end_idx = start_idx + hp.hparams.wav_step_size 
+			
+			total_steps = inp_wav.shape[0]
+			#print("inp_wav.shape:",inp_wav.shape)
+
+			# Get the windows of 1 second wav step segments with a small overlap 0===1280
+			id_windows = [range(i, i + hp.hparams.wav_step_size) for i in range(1280, total_steps, 
+						  hp.hparams.wav_step_size - hp.hparams.wav_step_overlap) if (i + hp.hparams.wav_step_size <= total_steps)]
+
+			print("id_windows:",id_windows)			
+
+			generated_stft = None
+			all_spec_batch = []
+			all_mel_batch = []
+			skip=False
+			for i, window in enumerate(id_windows):
+				#print("within for:",i)
+				start_idx = window[0]
+				end_idx = start_idx + hp.hparams.wav_step_size 
+				
+				# Segment the wav (1 second window)
+				wav = inp_wav[start_idx : end_idx]
+
+				# Get the corresponding input noisy melspectrograms
+				spec_window = get_spec(wav) 
+				if(spec_window.shape[0] != hp.hparams.spec_step_size):
+					skip=True
+					print("skip:",skip)
+					break
+				all_spec_batch.append(spec_window)
+				
+				# Get the melspectrogram for lipsync model
+				mel_window = get_segmented_mels(start_idx, inp_wav)
+				if(mel_window is None):
+					skip=True
+					print("mel_window skip:",skip)
+					break
+
+				mel_window = np.expand_dims(mel_window, axis=1)
+				all_mel_batch.append(mel_window)
+
+
+			if skip==True or len(all_spec_batch)==0 or len(all_mel_batch)==0:
+				print("return skip:",skip)
+				continue
+
+			all_spec_batch = np.array(all_spec_batch)
+
+			all_mel_batch = np.array(all_mel_batch)
+
+			if all_spec_batch.shape[0] != all_mel_batch.shape[0]:
+				continue
+
+			print("Total input segment windows: ", all_spec_batch.shape[0])
+			out = None
+			pred_stft = []
+			for i in tqdm(range(0, all_spec_batch.shape[0], args.batch_size)):
+				print("last for:",i)
+				mel_batch = all_mel_batch[i:i+args.batch_size]
+				spec_batch = all_spec_batch[i:i+args.batch_size]
+
+				# Convert to torch tensors
+				inp_mel = torch.FloatTensor(mel_batch).to(device)
+				inp_stft = torch.FloatTensor(spec_batch).to(device)
+
+				# Predict the faces using the student lipsync model
+				with torch.no_grad(): 
+					faces = lipsync_student(inp_mel)
 		
-		# Segment the wav (1 second window)
-		wav = inp_wav[start_idx : end_idx]
+				print(faces.shape)
+				for subset in faces:
+					subset = (subset.cpu().numpy().transpose(1,2,3,0) * 255).astype(np.uint8)
+					if i ==0:
+						name =args.result_dir.split(".")[0]+f"/{f}_temp.avi"
+						out = cv2.VideoWriter(name, cv2.VideoWriter_fourcc(*'MJPG'),   10, subset[0].shape[:2][::-1])
+					for j in range(subset.shape[0]):
+						print("subset:",subset[j].shape)  
+						#matplotlib.image.imsave('name.png', subset[j])
+				
+						out.write(subset[j])
 
-		# Get the corresponding input noisy melspectrograms
-		spec_window = get_spec(wav) 
-		if(spec_window.shape[0] != hp.hparams.spec_step_size):
-			skip=True
-			break
-		all_spec_batch.append(spec_window)
+
+				# Predict the spectrograms for the corresponding window
+				with torch.no_grad():
+					pred = model(inp_stft, faces)
+
+				# Detach from gpu
+				pred = pred.cpu().numpy()
+
+				pred_stft.extend(pred)
+
+			print("Successfully predicted for all the windows")
+			
+			# Convert to numpy array
+			pred_stft = np.array(pred_stft)
+
+			# Concatenate all the predictions 
+			steps = int(hp.hparams.spec_step_size - ((hp.hparams.wav_step_overlap/640) * 4))
+
+			if pred_stft.shape[0] == 1:
+				generated_stft = pred_stft[0].T
+			else:
+				generated_stft = pred_stft[0].T[:, :steps]
+			
+			for i in range(1, pred_stft.shape[0]):
+				# Last batch
+				if i==pred_stft.shape[0]-1:
+					generated_stft = np.concatenate((generated_stft, pred_stft[i].T), axis=1)
+				else:
+					generated_stft = np.concatenate((generated_stft, pred_stft[i].T[:, :steps]), axis=1)
+
+
+			if generated_stft is not None:
+				print("generated_stft:",generated_stft.shape)
+				generate_video(generated_stft, args,root,f,name)
+			else:
+				print("Oops! Couldn't denoise the input file!")
+			out.release()
+'''
+def predict(args):
+	# Load the student lipsync model
+        lipsync_student = load_lipsync_model(args)
+        # Load the model
+        model = load_model(args)
+        print("input:",args.input)
+        for root, dirs, files in os.walk(args.input):
+                print(root)
+                print(dirs)
+                print(files)
+                if len(files)==0:
+                    continue
+                for f in files:
+			# Load the input wav
+                        inp_wav = load_wav(root,f)
+                        print("Input wav: ", inp_wav.shape)
+                        total_steps = inp_wav.shape[0]
+
+			# Get the windows of 1 second wav step segments with a small overlap
+                        id_windows = [range(i, i + hp.hparams.wav_step_size) for i in range(1280, total_steps, hp.hparams.wav_step_size - hp.hparams.wav_step_overlap) if (i + hp.hparams.wav_step_size <= total_steps)]
+                        print("id_windows:",id_windows)
+
+                        generated_stft = None
+			all_spec_batch = []
+			all_mel_batch = []
+			skip=False
+			for i, window in enumerate(id_windows):
+
+				start_idx = window[0]
+				end_idx = start_idx + hp.hparams.wav_step_size 
+				
+				# Segment the wav (1 second window)
+				wav = inp_wav[start_idx : end_idx]
+
+				# Get the corresponding input noisy melspectrograms
+				spec_window = get_spec(wav) 
+				if(spec_window.shape[0] != hp.hparams.spec_step_size):
+					skip=True
+					break
+				all_spec_batch.append(spec_window)
+				
+				# Get the melspectrogram for lipsync model
+				mel_window = get_segmented_mels(start_idx, inp_wav)
+				if(mel_window is None):
+					skip=True
+					break
+
+				mel_window = np.expand_dims(mel_window, axis=1)
+				all_mel_batch.append(mel_window)
+
+
+			if skip==True or len(all_spec_batch)==0 or len(all_mel_batch)==0:
+				print( skip==True, len(all_spec_batch)==0 , len(all_mel_batch)==0,f)
+				continue
+
+			all_spec_batch = np.array(all_spec_batch)
+
+			all_mel_batch = np.array(all_mel_batch)
+
+			if all_spec_batch.shape[0] != all_mel_batch.shape[0]:
+				print("all_spec_batch.shape[0] != all_mel_batch.shape[0]",f)
+				continue
+
+			print("Total input segment windows: ", all_spec_batch.shape[0])
+
+			pred_stft = []
+			for i in tqdm(range(0, all_spec_batch.shape[0], args.batch_size)):
+
+				mel_batch = all_mel_batch[i:i+args.batch_size]
+				spec_batch = all_spec_batch[i:i+args.batch_size]
+
+				# Convert to torch tensors
+				inp_mel = torch.FloatTensor(mel_batch).to(device)
+				inp_stft = torch.FloatTensor(spec_batch).to(device)
+
+				# Predict the faces using the student lipsync model
+				with torch.no_grad(): 
+					faces = lipsync_student(inp_mel)
+
+				# Predict the spectrograms for the corresponding window
+				with torch.no_grad():
+					pred = model(inp_stft, faces)
+
+				# Detach from gpu
+				pred = pred.cpu().numpy()
+
+				pred_stft.extend(pred)
+
+			print("Successfully predicted for all the windows")
 		
-		# Get the melspectrogram for lipsync model
-		mel_window = get_segmented_mels(start_idx, inp_wav)
-		if(mel_window is None):
-			skip=True
-			break
+			# Convert to numpy array
+			pred_stft = np.array(pred_stft)
 
-		mel_window = np.expand_dims(mel_window, axis=1)
-		all_mel_batch.append(mel_window)
+			# Concatenate all the predictions 
+			steps = int(hp.hparams.spec_step_size - ((hp.hparams.wav_step_overlap/640) * 4))
 
-
-	if skip==True or len(all_spec_batch)==0 or len(all_mel_batch)==0:
-		return None
-
-	all_spec_batch = np.array(all_spec_batch)
-
-	all_mel_batch = np.array(all_mel_batch)
-
-	if all_spec_batch.shape[0] != all_mel_batch.shape[0]:
-		return None
-
-	print("Total input segment windows: ", all_spec_batch.shape[0])
-
-	pred_stft = []
-	for i in tqdm(range(0, all_spec_batch.shape[0], args.batch_size)):
-
-		mel_batch = all_mel_batch[i:i+args.batch_size]
-		spec_batch = all_spec_batch[i:i+args.batch_size]
-
-		# Convert to torch tensors
-		inp_mel = torch.FloatTensor(mel_batch).to(device)
-		inp_stft = torch.FloatTensor(spec_batch).to(device)
-
-		# Predict the faces using the student lipsync model
-		with torch.no_grad(): 
-			faces = lipsync_student(inp_mel)
-
-		# Predict the spectrograms for the corresponding window
-		with torch.no_grad():
-			pred = model(inp_stft, faces)
-
-		# Detach from gpu
-		pred = pred.cpu().numpy()
-
-		pred_stft.extend(pred)
-
-	print("Successfully predicted for all the windows")
-	
-	# Convert to numpy array
-	pred_stft = np.array(pred_stft)
-
-	# Concatenate all the predictions 
-	steps = int(hp.hparams.spec_step_size - ((hp.hparams.wav_step_overlap/640) * 4))
-
-	if pred_stft.shape[0] == 1:
-		generated_stft = pred_stft[0].T
-	else:
-		generated_stft = pred_stft[0].T[:, :steps]
-	
-	for i in range(1, pred_stft.shape[0]):
-		# Last batch
-		if i==pred_stft.shape[0]-1:
-			generated_stft = np.concatenate((generated_stft, pred_stft[i].T), axis=1)
-		else:
-			generated_stft = np.concatenate((generated_stft, pred_stft[i].T[:, :steps]), axis=1)
+			if pred_stft.shape[0] == 1:
+				generated_stft = pred_stft[0].T
+			else:
+				generated_stft = pred_stft[0].T[:, :steps]
+			
+			for i in range(1, pred_stft.shape[0]):
+				# Last batch
+				if i==pred_stft.shape[0]-1:
+					generated_stft = np.concatenate((generated_stft, pred_stft[i].T), axis=1)
+				else:
+					generated_stft = np.concatenate((generated_stft, pred_stft[i].T[:, :steps]), axis=1)
 
 
-	if generated_stft is not None:
-		generate_video(generated_stft, args)
-	else:
-		print("Oops! Couldn't denoise the input file!")
+			if generated_stft is not None:
+				generate_video(generated_stft, args,root,f)
+			else:
+				print("Oops! Couldn't denoise the input file!")
 
-
+'''
 if __name__ == '__main__':
 
 	parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 	parser.add_argument('--lipsync_student_model_path', type=str, required=True, help='Path of the lipgan model to generate frames')
 	parser.add_argument('--checkpoint_path', type=str,  required=True, help='Path of the saved checkpoint to load weights from')
-	parser.add_argument('--input', type=str, required=True, help='Filepath of input noisy audio/video')
+	#parser.add_argument('--input', type=str, required=True, help='Filepath of input noisy audio/video')
+	parser.add_argument('--input', help='video directory', required=True)
 	parser.add_argument('--batch_size', type=int, default=32, required=False, help='Batch size for the model')
 	parser.add_argument('--result_dir', default='results', required=False, help='Path of the directory to save the results')
 

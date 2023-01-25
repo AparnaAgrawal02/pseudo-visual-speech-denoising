@@ -1,54 +1,37 @@
-from tensorflow.contrib.training import HParams
+# from tensorflow.contrib.training import HParams
 from glob import glob
-import os, pickle
-import numpy as np
+import os
 
-def get_filelist(dataset, data_root, split):
-    pkl_file = 'filenames_{}_{}.pkl'.format(dataset, split)
-    if os.path.exists(pkl_file):
-        with open(pkl_file, 'rb') as p:
-            return pickle.load(p)
-    else:
-        filelist = glob('{}/*/*/audio.wav'.format(data_root))
+def get_image_list(data_root, split):
+	filelist = glob(data_root + '*')
 
-        if split == 'train':
-            filelist = filelist[:int(.95 * len(filelist))]
-        else:
-            filelist = filelist[int(.95 * len(filelist)):]
+	if split == 'train':
+		filelist = filelist[:int(.95 * len(filelist))]
+	else:
+		filelist = filelist[int(.95 * len(filelist)):]
+	
+	return filelist
 
-        with open(pkl_file, 'wb') as p:
-            pickle.dump(filelist, p, protocol=pickle.HIGHEST_PROTOCOL)
 
-        return filelist
 
-def get_noise_list(data_root):
-    pkl_file = 'filenames_noisy.pkl'
-    if os.path.exists(pkl_file):
-        with open(pkl_file, 'rb') as p:
-            return pickle.load(p)
-    else:
-        filelist = glob('{}/*.wav'.format(data_root))
-        with open(pkl_file, 'wb') as p:
-            pickle.dump(filelist, p, protocol=pickle.HIGHEST_PROTOCOL)
+class HParams:
+	def __init__(self, **kwargs):
+		self.data = {}
 
-        return filelist
+		for key, value in kwargs.items():
+			self.data[key] = value
 
-def get_all_files(pretrain_path, train_path, split):
+	def __getattr__(self, key):
+		if key not in self.data:
+			raise AttributeError("'HParams' object has no attribute %s" % key)
+		return self.data[key]
 
-    # LRS3 train files
-    filelist_lrs3 = get_filelist('lrs3_train', train_path, split)
-
-    # LRS3 pre-train files
-    filelist_lrs3_pretrain = get_filelist('lrs3_pretrain', pretrain_path, split)
-
-    # Combine all the files
-    filelist = filelist_lrs3 + filelist_lrs3_pretrain
-
-    return filelist
-
+	def set_hparam(self, key, value):
+		self.data[key] = value
+		
 # Default hyperparameters
 hparams = HParams(
-    num_mels=80,  # Number of mel-spectrogram channels and local conditioning dimensionality
+	num_mels=80,  # Number of mel-spectrogram channels and local conditioning dimensionality
     #  network
     rescale=True,  # Whether to rescale audio prior to preprocessing
     rescaling_max=0.9,  # Rescaling value
@@ -130,6 +113,14 @@ hparams = HParams(
     spec_step_size=100,
     wav_step_overlap=3200
 )
+
+
+def hparams_debug_string():
+	values = hparams.values()
+	hp = ["  %s: %s" % (name, values[name]) for name in sorted(values) if name != "sentences"]
+	return "Hyperparameters:\n" + "\n".join(hp)
+
+
 
 
 
