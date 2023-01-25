@@ -108,7 +108,7 @@ def generate_video(stft, args,root,f,name):
 
 	# Save the wav file
 
-	audio_output = os.path.join(result_dir, result_dir,f.split(".")[0]+"_result.wav")
+	audio_output = os.path.join( result_dir,f.split(".")[0]+"_result.wav")
 	librosa.output.write_wav(audio_output, wav, sampling_rate)
 
 	print("Saved the denoised audio file:", audio_output)
