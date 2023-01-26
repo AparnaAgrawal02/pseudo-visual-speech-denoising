@@ -1,12 +1,10 @@
-import os
-import sys
-import argparse
+import os, sys, argparse
 import numpy as np
 import subprocess
 import librosa
 from tqdm import tqdm
 import audio.audio_utils as audio
-import audio.hparams as hp
+import audio.hparams as hp 
 from models import *
 import matplotlib.image
 import torch
@@ -14,66 +12,63 @@ import cv2
 import uuid
 
 # Initialize the global variables
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu") 	
 sampling_rate = 16000
 
+def load_wav(path,video_file):
+	video = os.path.join(path,video_file)
+	wav_file  = 'tmp.wav';
 
-def load_wav(path, video_file):
-    video = os.path.join(path, video_file)
-    wav_file = 'tmp.wav'
-
-    subprocess.call('ffmpeg -hide_banner -loglevel panic -threads 1 -y -i %s -async 1 -ac 1 -vn \
+	subprocess.call('ffmpeg -hide_banner -loglevel panic -threads 1 -y -i %s -async 1 -ac 1 -vn \
 					-acodec pcm_s16le -ar 16000 %s' % (video, wav_file), shell=True)
+	
+	wav = audio.load_wav(wav_file, sampling_rate)
 
-    wav = audio.load_wav(wav_file, sampling_rate)
+	os.remove("tmp.wav")
 
-    os.remove("tmp.wav")
-
-    return wav
+	return wav
 
 
 def get_spec(wav):
 
-    # Compute STFT using librosa
-    stft = librosa.stft(y=wav, n_fft=hp.hparams.n_fft_den,
-                        hop_length=hp.hparams.hop_size_den, win_length=hp.hparams.win_size_den).T
-    stft = stft[:-1]														# Tx257
+	# Compute STFT using librosa
+	stft = librosa.stft(y=wav, n_fft=hp.hparams.n_fft_den, hop_length=hp.hparams.hop_size_den, win_length=hp.hparams.win_size_den).T
+	stft = stft[:-1]														# Tx257
 
-    # Decompose into magnitude and phase representations
-    mag = np.abs(stft)
-    mag = audio.db_from_amp(mag)
-    phase = audio.angle(stft)
+	# Decompose into magnitude and phase representations
+	mag = np.abs(stft)
+	mag = audio.db_from_amp(mag)
+	phase = audio.angle(stft)
 
-    # Normalize the magnitude and phase representations
-    norm_mag = audio.normalize_mag(mag)
-    norm_phase = audio.normalize_phase(phase)
+	# Normalize the magnitude and phase representations
+	norm_mag = audio.normalize_mag(mag)
+	norm_phase = audio.normalize_phase(phase)
+	
+	# Concatenate the magnitude and phase representations
+	spec_ip = np.concatenate((norm_mag, norm_phase), axis=1)				# Tx514
 
-    # Concatenate the magnitude and phase representations
-    spec_ip = np.concatenate((norm_mag, norm_phase), axis=1)				# Tx514
-
-    return spec_ip
+	return spec_ip
 
 
 def crop_mels(start_idx, noisy_wav):
-
+    
     end_idx = start_idx + 3200
 
     # Get the segmented wav (0.2 second)
-    noisy_seg_wav = noisy_wav[start_idx: end_idx]
-    if len(noisy_seg_wav) != 3200:
+    noisy_seg_wav = noisy_wav[start_idx : end_idx]
+    if len(noisy_seg_wav) != 3200: 
         return None
-
+    
     # Compute the melspectrogram using librosa
     spec = audio.melspectrogram(noisy_seg_wav, hp.hparams).T          		# 16x80
-    spec = spec[:-1]
+    spec = spec[:-1] 
 
     return spec
-
 
 def get_segmented_mels(start_idx, noisy_wav):
 
     mels = []
-    if start_idx - 1280 < 0:
+    if start_idx - 1280 < 0: 
         return None
 
     # Get the overlapping continuous segments of noisy mels
@@ -83,253 +78,246 @@ def get_segmented_mels(start_idx, noisy_wav):
             return None
         mels.append(m.T)
 
-    mels = np.asarray(mels)
+    mels = np.asarray(mels)                                             	
 
     return mels
 
 
-def generate_video(stft, args, root, f, name):
+def generate_video(stft, args,root,f,name):
 
-    # Reconstruct the predicted wav
-    mag = stft[:257, :]
-    phase = stft[257:, :]
+	# Reconstruct the predicted wav
+	mag = stft[:257, :]
+	phase = stft[257:, :]
 
-    denorm_mag = audio.unnormalize_mag(mag)
-    denorm_phase = audio.unnormalize_phase(phase)
-    recon_mag = audio.amp_from_db(denorm_mag)
-    complex_arr = audio.make_complex(recon_mag, denorm_phase)
-    wav = librosa.istft(complex_arr, hop_length=hp.hparams.hop_size_den,
-                        win_length=hp.hparams.win_size_den)
-    print(wav.shape, "generated")
-    base = os.path.basename(args.input)
-    copy = root
-    copy = os.path.basename(os.path.dirname(copy))
-    # Create the folder to save the results
-    result_dir = os.path.join(args.result_dir, os.path.basename(root))
-    result_dir = os.path.join(result_dir, copy)
+	denorm_mag = audio.unnormalize_mag(mag)
+	denorm_phase = audio.unnormalize_phase(phase)
+	recon_mag = audio.amp_from_db(denorm_mag)
+	complex_arr = audio.make_complex(recon_mag, denorm_phase)
+	wav = librosa.istft(complex_arr, hop_length=hp.hparams.hop_size_den, win_length=hp.hparams.win_size_den)
+	print(wav.shape,"generated")
+	base = os.path.basename(args.input)
+	copy = root
+	copy =  os.path.basename(os.path.dirname(copy))
+	# Create the folder to save the results
+	result_dir =os.path.join(args.result_dir, os.path.basename(root))
+	result_dir =os.path.join(result_dir,copy)
+	
+	print(result_dir,args.result_dir)
+	if not os.path.exists(result_dir):
+		os.makedirs(result_dir)
 
-    print(result_dir, args.result_dir)
-    if not os.path.exists(result_dir):
-        os.makedirs(result_dir)
+	# Save the wav file
 
-    # Save the wav file
+	audio_output = os.path.join(result_dir, result_dir,f.split(".")[0]+"_result.wav")
+	librosa.output.write_wav(audio_output, wav, sampling_rate)
 
-    audio_output = os.path.join(
-        result_dir, result_dir, f.split(".")[0]+"_result.wav")
-    librosa.output.write_wav(audio_output, wav, sampling_rate)
+	print("Saved the denoised audio file:", audio_output)
 
-    print("Saved the denoised audio file:", audio_output)
+	# Save the video output file if the input is a video file
+	if f.split('.')[1] in ['wav', 'mp3']:
+		audio_ = os.path.join(result_dir,f.split(".")[0]+".wav")
+		librosa.output.write_wav(audio_, wav, sampling_rate)
 
-    # Save the video output file if the input is a video file
-    if f.split('.')[1] in ['wav', 'mp3']:
-        audio_ = os.path.join(result_dir, f.split(".")[0]+".wav")
-        librosa.output.write_wav(audio_, wav, sampling_rate)
+		return
+	else:
+		#print("Hi")
+		no_sound_video = os.path.join(result_dir, 'result_nosouund.mp4')
+		subprocess.call('ffmpeg -hide_banner -loglevel panic -i %s -c copy -an -strict -2 %s' % (os.path.join(root,f), no_sound_video), shell=True)
 
-        return
-    else:
-        # print("Hi")
-        no_sound_video = os.path.join(result_dir, 'result_nosouund.mp4')
-        subprocess.call('ffmpeg -hide_banner -loglevel panic -i %s -c copy -an -strict -2 %s' %
-                        (os.path.join(root, f), no_sound_video), shell=True)
+		video_output_mp4 = os.path.join(result_dir, f)
+		if os.path.exists(video_output_mp4):
+			os.remove(video_output_mp4)
+		
+		subprocess.call('ffmpeg -hide_banner -loglevel panic -y -i %s -i %s -strict -2 -q:v 1 %s' % 
+						(audio_output, no_sound_video, video_output_mp4), shell=True)
+		subprocess.call('ffmpeg -hide_banner -loglevel panic -y -i %s -i %s -strict -2 -q:v 1 %s' %(audio_output, name, video_output_mp4.split(".")[0]+"_faces.mp4"), shell=True)
 
-        video_output_mp4 = os.path.join(result_dir, f)
-        if os.path.exists(video_output_mp4):
-            os.remove(video_output_mp4)
+		os.remove(no_sound_video)
 
-        subprocess.call('ffmpeg -hide_banner -loglevel panic -y -i %s -i %s -strict -2 -q:v 1 %s' %
-                        (audio_output, no_sound_video, video_output_mp4), shell=True)
-        subprocess.call('ffmpeg -hide_banner -loglevel panic -y -i %s -i %s -strict -2 -q:v 1 %s' %
-                        (audio_output, name, video_output_mp4.split(".")[0]+"_faces.mp4"), shell=True)
-
-        os.remove(no_sound_video)
-
-        print("Saved the denoised video file:", video_output_mp4)
-        os.remove(audio_output)
-        return
+		print("Saved the denoised video file:", video_output_mp4)
+		os.remove(audio_output)
+		return
 
 
 def load_model(args):
 
-    model = Model()
-    print("Loaded model from: ", args.checkpoint_path)
+	model = Model()
+	print("Loaded model from: ", args.checkpoint_path)
 
-    if not torch.cuda.is_available():
-        checkpoint = torch.load(args.checkpoint_path, map_location='cpu')
-    else:
-        checkpoint = torch.load(args.checkpoint_path)
+	if not torch.cuda.is_available():
+		checkpoint = torch.load(args.checkpoint_path, map_location='cpu')
+	else:
+		checkpoint = torch.load(args.checkpoint_path)
 
-    ckpt = {}
-    for key in checkpoint['state_dict'].keys():
-        if key.startswith('module.'):
-            k = key.split('module.', 1)[1]
-        else:
-            k = key
-        ckpt[k] = checkpoint['state_dict'][key]
-    model.load_state_dict(ckpt)
-    model = model.to(device)
-    return model.eval()
-
+	ckpt = {}
+	for key in checkpoint['state_dict'].keys():
+		if key.startswith('module.'):
+			k = key.split('module.', 1)[1]
+		else:
+			k = key
+		ckpt[k] = checkpoint['state_dict'][key]
+	model.load_state_dict(ckpt)	
+	model = model.to(device)
+	return model.eval()
 
 def load_lipsync_model(args):
+	
+	lipsync_student = Lipsync_Student()
 
-    lipsync_student = Lipsync_Student()
+	if not torch.cuda.is_available():
+		lipsync_student_checkpoint = torch.load(args.lipsync_student_model_path, map_location='cpu')
+	else:
+		lipsync_student_checkpoint = torch.load(args.lipsync_student_model_path)
 
-    if not torch.cuda.is_available():
-        lipsync_student_checkpoint = torch.load(
-            args.lipsync_student_model_path, map_location='cpu')
-    else:
-        lipsync_student_checkpoint = torch.load(
-            args.lipsync_student_model_path)
+	ckpt = {}
+	for key in lipsync_student_checkpoint['state_dict'].keys():
+		if key.startswith('module.'):
+			k = key.split('module.', 1)[1]
+		else:
+			k = key
+		ckpt[k] = lipsync_student_checkpoint['state_dict'][key]
+	lipsync_student.load_state_dict(ckpt)	
+	lipsync_student = lipsync_student.to(device)
 
-    ckpt = {}
-    for key in lipsync_student_checkpoint['state_dict'].keys():
-        if key.startswith('module.'):
-            k = key.split('module.', 1)[1]
-        else:
-            k = key
-        ckpt[k] = lipsync_student_checkpoint['state_dict'][key]
-    lipsync_student.load_state_dict(ckpt)
-    lipsync_student = lipsync_student.to(device)
-
-    return lipsync_student.eval()
-
+	return lipsync_student.eval()
 
 def predict(args):
-	print("input:", args.input)
+	print("input:",args.input)
 	# Load the student lipsync model
 	lipsync_student = load_lipsync_model(args)
-    # Load the model
+	# Load the model
 	model = load_model(args)
 	for root, dirs, files in os.walk(args.input):
-		    # print("files:",files)
-		if len(files) == 0:
+		#print("files:",files)
+		if len(files)==0:
 			continue
 		for f in files:
-			    # Load the input wav
-            # print("file:",os.path.join(root,f))
+			# Load the input wav
+			#print("file:",os.path.join(root,f))
 			try:
-				inp_wav = load_wav(root, f)
+				inp_wav = load_wav(root,f)
 				print("Input wav: ", inp_wav.shape)
 			except:
 				continue
-			total_steps = inp_wav.shape[0]
-            # print("inp_wav.shape:",inp_wav.shape)
 
-            # Get the windows of 1 second wav step segments with a small overlap 0===1280
-			id_windows = [range(i, i + hp.hparams.wav_step_size) for i in range(1280, total_steps,
-                                                                                hp.hparams.wav_step_size - hp.hparams.wav_step_overlap) if (i + hp.hparams.wav_step_size <= total_steps)]
-			print("id_windows:", id_windows)
-			#get faces from video
-			video_cap = cv2.VideoCapture(args.face_path)
-			success, image = video_cap.read()
-			faces =[]
-			while success:
-				faces.append(image)
-				success, image = video_cap.read()
+
+			
+			total_steps = inp_wav.shape[0]
+			#print("inp_wav.shape:",inp_wav.shape)
+
+			# Get the windows of 1 second wav step segments with a small overlap 0===1280
+			id_windows = [range(i, i + hp.hparams.wav_step_size) for i in range(1280, total_steps, 
+						  hp.hparams.wav_step_size - hp.hparams.wav_step_overlap) if (i + hp.hparams.wav_step_size <= total_steps)]
+
+			print("id_windows:",id_windows)			
 
 			generated_stft = None
 			all_spec_batch = []
 			all_mel_batch = []
-			skip = False
-
+			skip=False
 			for i, window in enumerate(id_windows):
-				
-			#print("within for:",i)
+				#print("within for:",i)
 				start_idx = window[0]
-				end_idx = start_idx + hp.hparams.wav_step_size
+				end_idx = start_idx + hp.hparams.wav_step_size 
+				
+				# Segment the wav (1 second window)
+				wav = inp_wav[start_idx : end_idx]
 
-                # Segment the wav (1 second window
-				wav = inp_wav[start_idx: end_idx]
-				#faces of 1 second window
-				face1sec = faces[start_idx: end_idx]
-
-                # Get the corresponding input noisy melspectrograms
-				spec_window = get_spec(wav)
+				# Get the corresponding input noisy melspectrograms
+				spec_window = get_spec(wav) 
 				if(spec_window.shape[0] != hp.hparams.spec_step_size):
-					skip = True
-					print("skip:", skip)
+					skip=True
+					print("skip:",skip)
 					break
 				all_spec_batch.append(spec_window)
-
-                # Get the melspectrogram for lipsync model
+				
+				# Get the melspectrogram for lipsync model
 				mel_window = get_segmented_mels(start_idx, inp_wav)
 				if(mel_window is None):
-					skip = True
-					print("mel_window skip:", skip)
+					skip=True
+					print("mel_window skip:",skip)
 					break
+
 				mel_window = np.expand_dims(mel_window, axis=1)
 				all_mel_batch.append(mel_window)
 
-				if skip == True or len(all_spec_batch) == 0 or len(all_mel_batch) == 0:
-					print("return skip:", skip)
-					continue
 
-				all_spec_batch = np.array(all_spec_batch)
+			if skip==True or len(all_spec_batch)==0 or len(all_mel_batch)==0:
+				print("return skip:",skip)
+				continue
 
-				all_mel_batch = np.array(all_mel_batch)
+			all_spec_batch = np.array(all_spec_batch)
 
-				if all_spec_batch.shape[0] != all_mel_batch.shape[0]:
-					continue
+			all_mel_batch = np.array(all_mel_batch)
 
-				print("Total input segment windows: ", all_spec_batch.shape[0])
-				out = None
-				pred_stft = []
-				for i in tqdm(range(0, all_spec_batch.shape[0], args.batch_size)):
-					print("last for:", i)
-					mel_batch = all_mel_batch[i:i+args.batch_size]
-					spec_batch = all_spec_batch[i:i+args.batch_size]
+			if all_spec_batch.shape[0] != all_mel_batch.shape[0]:
+				continue
 
-					# Convert to torch tensors
-					inp_mel = torch.FloatTensor(mel_batch).to(device)
-					inp_stft = torch.FloatTensor(spec_batch).to(device)
+			print("Total input segment windows: ", all_spec_batch.shape[0])
+			out = None
+			pred_stft = []
+			for i in tqdm(range(0, all_spec_batch.shape[0], args.batch_size)):
+				print("last for:",i)
+				mel_batch = all_mel_batch[i:i+args.batch_size]
+				spec_batch = all_spec_batch[i:i+args.batch_size]
 
-					""" # Predict the faces using the student lipsync model
-					with torch.no_grad():
-						faces = lipsync_student(inp_mel)
-					"""
+				# Convert to torch tensors
+				inp_mel = torch.FloatTensor(mel_batch).to(device)
+				inp_stft = torch.FloatTensor(spec_batch).to(device)
 
+				# Predict the faces using the student lipsync model
+				with torch.no_grad(): 
+					faces = lipsync_student(inp_mel)
+		
 				print(faces.shape)
-	
+				for subset in faces:
+					subset = (subset.cpu().numpy().transpose(1,2,3,0) * 255).astype(np.uint8)
+					if i ==0:
+						name =args.result_dir.split(".")[0]+f"/{f}_temp.avi"
+						out = cv2.VideoWriter(name, cv2.VideoWriter_fourcc(*'MJPG'),   10, subset[0].shape[:2][::-1])
+					for j in range(subset.shape[0]):
+						print("subset:",subset[j].shape)  
+						#matplotlib.image.imsave('name.png', subset[j])
+				
+						out.write(subset[j])
+
+
 				# Predict the spectrograms for the corresponding window
 				with torch.no_grad():
-					pred = model(inp_stft, face1sec)
+					pred = model(inp_stft, faces)
 
 				# Detach from gpu
 				pred = pred.cpu().numpy()
 
 				pred_stft.extend(pred)
 
-				print("Successfully predicted for all the windows")
+			print("Successfully predicted for all the windows")
+			
+			# Convert to numpy array
+			pred_stft = np.array(pred_stft)
 
-				# Convert to numpy array
-				pred_stft = np.array(pred_stft)
+			# Concatenate all the predictions 
+			steps = int(hp.hparams.spec_step_size - ((hp.hparams.wav_step_overlap/640) * 4))
 
-				# Concatenate all the predictions
-				steps = int(hp.hparams.spec_step_size -
-							((hp.hparams.wav_step_overlap/640) * 4))
-
-				if pred_stft.shape[0] == 1:
-					generated_stft = pred_stft[0].T
+			if pred_stft.shape[0] == 1:
+				generated_stft = pred_stft[0].T
+			else:
+				generated_stft = pred_stft[0].T[:, :steps]
+			
+			for i in range(1, pred_stft.shape[0]):
+				# Last batch
+				if i==pred_stft.shape[0]-1:
+					generated_stft = np.concatenate((generated_stft, pred_stft[i].T), axis=1)
 				else:
-					generated_stft = pred_stft[0].T[:, :steps]
+					generated_stft = np.concatenate((generated_stft, pred_stft[i].T[:, :steps]), axis=1)
 
-				for i in range(1, pred_stft.shape[0]):
-					# Last batch
-					if i == pred_stft.shape[0]-1:
-						generated_stft = np.concatenate(
-							(generated_stft, pred_stft[i].T), axis=1)
-					else:
-						generated_stft = np.concatenate(
-							(generated_stft, pred_stft[i].T[:, :steps]), axis=1)
 
 			if generated_stft is not None:
-				print("generated_stft:", generated_stft.shape)
-				generate_video(generated_stft, args, root, f, args.face_path)
+				print("generated_stft:",generated_stft.shape)
+				generate_video(generated_stft, args,root,f,name)
 			else:
 				print("Oops! Couldn't denoise the input file!")
 			out.release()
-
-
 '''
 def predict(args):
 	# Load the student lipsync model
@@ -448,19 +436,14 @@ def predict(args):
 '''
 if __name__ == '__main__':
 
-    parser = argparse.ArgumentParser(
-        formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    parser.add_argument('--lipsync_student_model_path', type=str,
-                        required=True, help='Path of the lipgan model to generate frames')
-    parser.add_argument('--checkpoint_path', type=str,  required=True,
-                        help='Path of the saved checkpoint to load weights from')
-    #parser.add_argument('--input', type=str, required=True, help='Filepath of input noisy audio/video')
-    parser.add_argument('--input', help='video directory', required=True)
-    parser.add_argument('--batch_size', type=int, default=32,
-                        required=False, help='Batch size for the model')
-    parser.add_argument('--result_dir', default='results', required=False,
-                        help='Path of the directory to save the results')
+	parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+	parser.add_argument('--lipsync_student_model_path', type=str, required=True, help='Path of the lipgan model to generate frames')
+	parser.add_argument('--checkpoint_path', type=str,  required=True, help='Path of the saved checkpoint to load weights from')
+	#parser.add_argument('--input', type=str, required=True, help='Filepath of input noisy audio/video')
+	parser.add_argument('--input', help='video directory', required=True)
+	parser.add_argument('--batch_size', type=int, default=32, required=False, help='Batch size for the model')
+	parser.add_argument('--result_dir', default='results', required=False, help='Path of the directory to save the results')
 
-    args = parser.parse_args()
+	args = parser.parse_args()
 
-    predict(args)
+	predict(args)
