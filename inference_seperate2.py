@@ -75,7 +75,7 @@ def get_segmented_mels(start_idx, noisy_wav):
   for i in range(start_idx, start_idx + hp.hparams.wav_step_size, 640):
     m = crop_mels(i - 1280, noisy_wav)
     if m is None or m.shape[0] != hp.hparams.mel_step_size:
-    return None
+        return None
     mels.append(m.T)
 
   mels = np.asarray(mels)               	
@@ -428,15 +428,15 @@ def predict(args):
 '''
 if __name__ == '__main__':
 
-	parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-	parser.add_argument('--lipsync_student_model_path', type=str, required=True, help='Path of the lipgan model to generate frames')
-	parser.add_argument('--checkpoint_path', type=str,  required=True, help='Path of the saved checkpoint to load weights from')
-	#parser.add_argument('--input', type=str, required=True, help='Filepath of input noisy audio/video')
-	parser.add_argument('--input', help='video directory', required=True)
-  parser.add_argument('--face_path', help='video directory', required=True)
-	parser.add_argument('--batch_size', type=int, default=32, required=False, help='Batch size for the model')
-	parser.add_argument('--result_dir', default='results', required=False, help='Path of the directory to save the results')
+    parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    parser.add_argument('--lipsync_student_model_path', type=str, required=True, help='Path of the lipgan model to generate frames')
+    parser.add_argument('--checkpoint_path', type=str,  required=True, help='Path of the saved checkpoint to load weights from')
+    #parser.add_argument('--input', type=str, required=True, help='Filepath of input noisy audio/video')
+    parser.add_argument('--input', help='video directory', required=True)
+    parser.add_argument('--face_path', help='video directory', required=True)
+    parser.add_argument('--batch_size', type=int, default=32, required=False, help='Batch size for the model')
+    parser.add_argument('--result_dir', default='results', required=False, help='Path of the directory to save the results')
 
-	args = parser.parse_args()
+    args = parser.parse_args()
 
-	predict(args)
+    predict(args)
