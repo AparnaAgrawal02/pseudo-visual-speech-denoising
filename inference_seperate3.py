@@ -340,7 +340,7 @@ def predict(args):
                         #matplotlib.image.imsave('name.png', subset[j])
 
                         out.write(subset[j])
-                print("mixed_stft:" inp_stft.shape,inp_stft2.shape)
+                print("mixed_stft:", inp_stft.shape,inp_stft2.shape)
 
                 mixed_stft = inp_stft + inp_stft2
 
