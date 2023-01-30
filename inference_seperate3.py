@@ -217,7 +217,7 @@ def predict(args):
                     inp_wav2 = inp_wav2[:inp_wav.shape[0]]
                 else:
                     inp_wav = inp_wav[:inp_wav2.shape[0]]
-                    
+
             except:
                 continue
 
@@ -396,7 +396,7 @@ def predict(args):
 
             if generated_stft is not None:
                 print("generated_stft:", generated_stft.shape)
-                generate_video(generated_stft, args, root, args.file2, name)
+                generate_video(generated_stft, args, root, f, name)
             else:
                 print("Oops! Couldn't denoise the input file!")
             out.release()
