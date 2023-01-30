@@ -531,6 +531,8 @@ if __name__ == '__main__':
                         required=False, help='Batch size for the model')
     parser.add_argument('--result_dir', default='results', required=False,
                         help='Path of the directory to save the results')
+    parser.add_argument('--file2', default='results', required=False,
+                        help='Path of the directory to save the results')
 
     args = parser.parse_args()
 
