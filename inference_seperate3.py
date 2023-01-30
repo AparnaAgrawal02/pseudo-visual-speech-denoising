@@ -358,6 +358,7 @@ def predict(args):
 
             # Convert to numpy array
             pred_stft = np.array(pred_stft)
+            added_stft = np.array(added_stft)
 
             # Concatenate all the predictions
             steps = int(hp.hparams.spec_step_size -
