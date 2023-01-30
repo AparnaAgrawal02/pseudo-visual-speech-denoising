@@ -351,6 +351,7 @@ def predict(args):
                 pred = pred.cpu().numpy()
                 mstft = mixed_stft.cpu().numpy()
                 pred_stft.extend(pred)
+                print("HI")
                 added_stft.extend(mstft)
                 
 
