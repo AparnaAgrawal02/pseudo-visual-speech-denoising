@@ -201,7 +201,7 @@ def predict(args):
     # Load the model
     model = load_model(args)
     for root, dirs, files in os.walk(args.input):
-        # print("files:",files)
+        print("files:",files)
         if len(files) == 0:
             continue
         for f in files:
@@ -209,8 +209,9 @@ def predict(args):
             # print("file:",os.path.join(root,f))
             try:
                 inp_wav = load_wav(root, f)
-                inp_wav2 = load_wav(root, args.file2)
                 print("Input wav: ", inp_wav.shape)
+                inp_wav2 = load_wav(root, args.file2)
+                print("Input wav2: ", inp_wav2.shape)
             except:
                 continue
 
