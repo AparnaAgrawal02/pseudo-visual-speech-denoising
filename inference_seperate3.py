@@ -385,7 +385,7 @@ def predict(args):
             if added_stft is not None:
                 print("added_stft:", added_stft.shape)
                 addedstft = librosa.istft(added_stft[0].T)
-                librosa.output.write_wav(args.result_dir.split(".")[0]+f"/{f}_added.wav", addedstft)
+                librosa.output.write_wav(args.result_dir.split(".")[0]+f"/{f}_added.wav", addedstft,sampling_rate)
 
 
             if generated_stft is not None:
