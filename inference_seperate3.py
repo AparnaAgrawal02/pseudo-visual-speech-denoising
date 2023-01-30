@@ -379,22 +379,7 @@ def predict(args):
                     generated_stft = np.concatenate(
                         (generated_stft, pred_stft[i].T[:, :steps]), axis=1)
 
-            # Convert mixed_stft to wav
-            if added_stft.shape[0] == 1:
-                added_stft = added_stft[0].T
-            else:
-                added_stft = added_stft[0].T[:, :steps]
-
-            for i in range(1, added_stft.shape[0]):
-                # Last batch
-                if i == added_stft.shape[0]-1:
-                    added_stft = np.concatenate(
-                        (added_stft, added_stft[i].T), axis=1)
-                else:
-                    added_stft = np.concatenate(
-                        (added_stft, added_stft[i].T[:, :steps]), axis=1)
-
-            # Convert added_stft to wav
+           
             if added_stft is not None:
                 print("added_stft:", added_stft.shape)
                 generate_video(added_stft, args, root, f, name)
