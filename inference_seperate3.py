@@ -384,9 +384,9 @@ def predict(args):
            
             if added_stft is not None:
                 print("added_stft:", added_stft.shape)
-                addedstft = librosa.istft(added_stft[0].T, hop_length=hp.hparams.wav_step_overlap, win_length=hp.hparams.wav_window_size)
+                addedstft = librosa.istft(added_stft[0].T)
                 librosa.output.write_wav(args.result_dir.split(".")[0]+f"/{f}_added.wav", addedstft, hp.hparams.sr)
-                
+
 
             if generated_stft is not None:
                 print("generated_stft:", generated_stft.shape)
