@@ -336,12 +336,14 @@ def predict(args):
                         out = cv2.VideoWriter(name, cv2.VideoWriter_fourcc(
                             *'MJPG'),   10, subset[0].shape[:2][::-1])
                     for j in range(subset.shape[0]):
-                        print("subset:", subset[j].shape)
+                        #print("subset:", subset[j].shape)
                         #matplotlib.image.imsave('name.png', subset[j])
 
                         out.write(subset[j])
+                print("mixed_stft:" inp_stft.shape,inp_stft2.shape)
 
                 mixed_stft = inp_stft + inp_stft2
+
 
                 # Predict the spectrograms for the corresponding window
                 with torch.no_grad():
