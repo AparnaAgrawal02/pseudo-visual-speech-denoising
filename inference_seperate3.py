@@ -380,9 +380,10 @@ def predict(args):
                         (generated_stft, pred_stft[i].T[:, :steps]), axis=1)
 
            
-            if added_stft is not None:
+            """ if added_stft is not None:
                 print("added_stft:", added_stft.shape)
                 generate_video(added_stft, args, root, f, name)
+            """
 
             if generated_stft is not None:
                 print("generated_stft:", generated_stft.shape)
