@@ -307,6 +307,7 @@ def predict(args):
 
             out = None
             pred_stft = []
+            added_stft = []
             for i in tqdm(range(0, all_spec_batch.shape[0], args.batch_size)):
                 print("last for:", i)
                 mel_batch = all_mel_batch[i:i+args.batch_size]
@@ -348,8 +349,10 @@ def predict(args):
 
                 # Detach from gpu
                 pred = pred.cpu().numpy()
-
+                mstft = mixed_stft.cpu().numpy()
                 pred_stft.extend(pred)
+                added_stft.extend(mstft)
+                
 
             print("Successfully predicted for all the windows")
 
@@ -375,24 +378,24 @@ def predict(args):
                         (generated_stft, pred_stft[i].T[:, :steps]), axis=1)
 
             # Convert mixed_stft to wav
-            if mixed_stft.shape[0] == 1:
-                mixed_stft = mixed_stft[0].T
+            if added_stft.shape[0] == 1:
+                added_stft = added_stft[0].T
             else:
-                mixed_stft = mixed_stft[0].T[:, :steps]
+                added_stft = added_stft[0].T[:, :steps]
 
-            for i in range(1, mixed_stft.shape[0]):
+            for i in range(1, added_stft.shape[0]):
                 # Last batch
-                if i == mixed_stft.shape[0]-1:
-                    mixed_stft = np.concatenate(
-                        (mixed_stft, mixed_stft[i].T), axis=1)
+                if i == added_stft.shape[0]-1:
+                    added_stft = np.concatenate(
+                        (added_stft, added_stft[i].T), axis=1)
                 else:
-                    mixed_stft = np.concatenate(
-                        (mixed_stft, mixed_stft[i].T[:, :steps]), axis=1)
+                    added_stft = np.concatenate(
+                        (added_stft, added_stft[i].T[:, :steps]), axis=1)
 
-            # Convert mixed_stft to wav
-            if mixed_stft is not None:
-                print("mixed_stft:", mixed_stft.shape)
-                generate_video(mixed_stft, args, root, f, name)
+            # Convert added_stft to wav
+            if added_stft is not None:
+                print("added_stft:", added_stft.shape)
+                generate_video(added_stft, args, root, f, name)
 
             if generated_stft is not None:
                 print("generated_stft:", generated_stft.shape)
