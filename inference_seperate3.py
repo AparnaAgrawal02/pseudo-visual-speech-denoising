@@ -212,6 +212,12 @@ def predict(args):
                 print("Input wav: ", inp_wav.shape)
                 inp_wav2 = load_wav(root, args.file2)
                 print("Input wav2: ", inp_wav2.shape)
+
+                if inp_wav.shape[0] < inp_wav2.shape[0]:
+                    inp_wav2 = inp_wav2[:inp_wav.shape[0]]
+                else:
+                    inp_wav = inp_wav[:inp_wav2.shape[0]]
+                    
             except:
                 continue
 
@@ -384,8 +390,8 @@ def predict(args):
            
             if added_stft is not None:
                 print("added_stft:", added_stft.shape)
-                addedstft = librosa.istft(added_stft[0].T)
-                librosa.output.write_wav(args.result_dir.split(".")[0]+f"/{f}_added.wav", addedstft,sampling_rate)
+                addedstft = librosa.istft(added_stft[0])
+                librosa.output.write_wav(args.result_dir.split(".")[0]+f"/{f}_{args.file2}_added.wav", addedstft,sampling_rate)
 
 
             if generated_stft is not None:
