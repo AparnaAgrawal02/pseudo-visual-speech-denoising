@@ -361,14 +361,14 @@ def predict(args):
                 pred_stft.extend(pred)
                 print("HI")
                 added_stft.extend(mstft)
-                print(added_stft.shape)
+                #print(added_stft.shape)
 
             print("Successfully predicted for all the windows")
 
             # Convert to numpy array
             pred_stft = np.array(pred_stft)
             added_stft = np.array(added_stft)
-            print("shape"added_stft.shape, pred_stft.shape)
+            print("shape",added_stft.shape, pred_stft.shape)
 
             # Concatenate all the predictions
             steps = int(hp.hparams.spec_step_size -
