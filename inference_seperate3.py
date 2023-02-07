@@ -106,7 +106,7 @@ def generate_video(stft, args, root, f, name):
     copy = os.path.basename(os.path.dirname(copy))
     # Create the folder to save the results
     result_dir = os.path.join(args.result_dir, os.path.basename(root))
-    result_dir = os.path.join(result_dir, copy)
+    #result_dir = os.path.join(result_dir, copy)
 
     print(result_dir, args.result_dir)
     if not os.path.exists(result_dir):
@@ -114,8 +114,7 @@ def generate_video(stft, args, root, f, name):
 
     # Save the wav file
 
-    audio_output = os.path.join(
-        result_dir, f.split(".")[0]+name.split(".")[0]+"_result.wav")
+    audio_output = name
     librosa.output.write_wav(audio_output, wav, sampling_rate)
 
     print("Saved the denoised audio file:", audio_output)
@@ -398,13 +397,14 @@ def predict(args):
             print("artificial_added_stft:", artificial_added_stft.shape);
             if added_stft is not None:
                 print("added_stft:", added_stft.shape)
-                generate_video(artificial_added_stft, args, root, f,"{f}_{args.file2}_added.avi")
+                generate_video(artificial_added_stft, args, root, f,args.result_dir.split(".")[0]+f"/{f}_{args.file2}_added.avi")
                #librosa.output.write_wav(args.result_dir.split(".")[0]+f"/{f}_{args.file2}_added.wav", addedstft,sampling_rate)
 
 
             if generated_stft is not None:
                 print("generated_stft:", generated_stft.shape)
-                generate_video(generated_stft, args, root, f, name)
+                generate_video(generated_stft, args, root, f, os.path.join(
+        args.result_dir, f.split(".")[0]+"_result.wav"))
             else:
                 print("Oops! Couldn't denoise the input file!")
             out.release()
