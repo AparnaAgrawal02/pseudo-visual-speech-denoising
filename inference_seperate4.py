@@ -143,7 +143,7 @@ def generate_video(stft, args, root, f, name):
         os.remove(no_sound_video)
 
         print("Saved the denoised video file:", video_output_mp4)
-        os.remove(audio_output)
+        #os.remove(audio_output)
         return
 
 
