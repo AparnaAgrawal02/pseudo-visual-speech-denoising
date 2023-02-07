@@ -376,24 +376,30 @@ def predict(args):
 
             if pred_stft.shape[0] == 1:
                 generated_stft = pred_stft[0].T
+                artificial_added_stft = added_stft[0].T
             else:
                 generated_stft = pred_stft[0].T[:, :steps]
+                artificial_added_stft = added_stft[0].T[:, :steps]
 
             for i in range(1, pred_stft.shape[0]):
                 # Last batch
                 if i == pred_stft.shape[0]-1:
                     generated_stft = np.concatenate(
                         (generated_stft, pred_stft[i].T), axis=1)
+                    artificial_added_stft = np.concatenate(
+                        (artificial_added_stft, added_stft[i].T), axis=1)
                 else:
                     generated_stft = np.concatenate(
                         (generated_stft, pred_stft[i].T[:, :steps]), axis=1)
+                    artificial_added_stft = np.concatenate(
+                        (artificial_added_stft, added_stft[i].T[:, :steps]), axis=1)
 
             print("generated_stft:", generated_stft.shape);
-            print("added_stft:", added_stft.shape);
+            print("artificial_added_stft:", artificial_added_stft.shape);
             if added_stft is not None:
                 print("added_stft:", added_stft.shape)
-                generate_video(added_stft, args, root, f, name)
-                librosa.output.write_wav(args.result_dir.split(".")[0]+f"/{f}_{args.file2}_added.wav", addedstft,sampling_rate)
+                generate_video(added_stft, args, root, f,args.result_dir.split(".")[0]+f"/{f}_{args.file2}_added.avi")
+               #librosa.output.write_wav(args.result_dir.split(".")[0]+f"/{f}_{args.file2}_added.wav", addedstft,sampling_rate)
 
 
             if generated_stft is not None:
