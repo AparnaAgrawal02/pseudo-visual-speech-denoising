@@ -359,7 +359,7 @@ def predict(args):
                 pred = pred.cpu().numpy()
                 mstft = mixed_stft.cpu().numpy()
                 pred_stft.extend(pred)
-                print("HI")
+                #print("HI")
                 added_stft.extend(mstft)
                 #print(added_stft.shape)
 
@@ -388,10 +388,11 @@ def predict(args):
                     generated_stft = np.concatenate(
                         (generated_stft, pred_stft[i].T[:, :steps]), axis=1)
 
-           
+            print("generated_stft:", generated_stft.shape);
+            print("added_stft:", added_stft.shape);
             if added_stft is not None:
                 print("added_stft:", added_stft.shape)
-                addedstft = librosa.istft(added_stft[0])
+                generate_video(added_stft, args, root, f, name)
                 librosa.output.write_wav(args.result_dir.split(".")[0]+f"/{f}_{args.file2}_added.wav", addedstft,sampling_rate)
 
 
@@ -416,7 +417,7 @@ def predict(args):
                 print(files)
                 if len(files)==0:
                     continue
-                for f in files:
+                for f in files: 
 			# Load the input wav
                         inp_wav = load_wav(root,f)
                         print("Input wav: ", inp_wav.shape)
