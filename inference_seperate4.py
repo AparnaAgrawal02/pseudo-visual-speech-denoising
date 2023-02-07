@@ -200,7 +200,7 @@ def predict(args):
     # Load the model
     model = load_model(args)
     for root, dirs, files in os.walk(args.input):
-        print("files:",files)
+        print("files:", files)
         if len(files) == 0:
             continue
         for f in files:
@@ -248,7 +248,6 @@ def predict(args):
 
                 # Segment the wav (1 second window)
                 wav = inp_wav[start_idx: end_idx]
-                
 
                 # Get the corresponding input noisy melspectrograms
                 spec_window = get_spec(wav)
@@ -347,10 +346,9 @@ def predict(args):
                         #matplotlib.image.imsave('name.png', subset[j])
 
                         out.write(subset[j])
-                print("mixed_stft:", inp_stft.shape,inp_stft2.shape)
+                print("mixed_stft:", inp_stft.shape, inp_stft2.shape)
 
-                mixed_stft =  inp_stft2
-
+                mixed_stft = inp_stft2
 
                 # Predict the spectrograms for the corresponding window
                 with torch.no_grad():
@@ -360,16 +358,16 @@ def predict(args):
                 pred = pred.cpu().numpy()
                 mstft = mixed_stft.cpu().numpy()
                 pred_stft.extend(pred)
-                #print("HI")
+                # print("HI")
                 added_stft.extend(mstft)
-                #print(added_stft.shape)
+                # print(added_stft.shape)
 
             print("Successfully predicted for all the windows")
 
             # Convert to numpy array
             pred_stft = np.array(pred_stft)
             added_stft = np.array(added_stft)
-            print("shape",added_stft.shape, pred_stft.shape)
+            print("shape", added_stft.shape, pred_stft.shape)
 
             # Concatenate all the predictions
             steps = int(hp.hparams.spec_step_size -
@@ -395,18 +393,18 @@ def predict(args):
                     artificial_added_stft = np.concatenate(
                         (artificial_added_stft, added_stft[i].T[:, :steps]), axis=1)
 
-            print("generated_stft:", generated_stft.shape);
-            print("artificial_added_stft:", artificial_added_stft.shape);
+            print("generated_stft:", generated_stft.shape)
+            print("artificial_added_stft:", artificial_added_stft.shape)
             if added_stft is not None:
                 print("added_stft:", added_stft.shape)
-                generate_video(artificial_added_stft, args, root, f,args.result_dir.split(".")[0]+f"/{f}_{args.file2}_added.wav")
+                generate_video(artificial_added_stft, args, root, f, os.path.join(
+                    args.result_dir, f.split(".")[0]+"_added.wav"))
                #librosa.output.write_wav(args.result_dir.split(".")[0]+f"/{f}_{args.file2}_added.wav", addedstft,sampling_rate)
-
 
             if generated_stft is not None:
                 print("generated_stft:", generated_stft.shape)
                 generate_video(generated_stft, args, root, f, os.path.join(
-        args.result_dir, f.split(".")[0]+"_result.wav"))
+                    args.result_dir, f.split(".")[0]+"_result.wav"))
             else:
                 print("Oops! Couldn't denoise the input file!")
             out.release()
