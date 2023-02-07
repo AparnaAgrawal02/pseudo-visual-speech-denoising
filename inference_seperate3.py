@@ -398,7 +398,7 @@ def predict(args):
             print("artificial_added_stft:", artificial_added_stft.shape);
             if added_stft is not None:
                 print("added_stft:", added_stft.shape)
-                generate_video(added_stft, args, root, f,args.result_dir.split(".")[0]+f"/{f}_{args.file2}_added.avi")
+                generate_video(artificial_added_stft, args, root, f,args.result_dir.split(".")[0]+f"/{f}_{args.file2}_added.avi")
                #librosa.output.write_wav(args.result_dir.split(".")[0]+f"/{f}_{args.file2}_added.wav", addedstft,sampling_rate)
 
 
