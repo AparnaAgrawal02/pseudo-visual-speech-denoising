@@ -258,7 +258,7 @@ def predict(args):
                 all_spec_batch.append(spec_window)
 
                 # Get the melspectrogram for lipsync model
-                mel_window = get_segmented_mels(start_idx, inp_wav)
+                mel_window = get_segmented_mels(start_idx, inp_wav2)
                 if(mel_window is None):
                     skip = True
                     print("mel_window skip:", skip)
