@@ -211,11 +211,18 @@ def predict(args):
                 print("Input wav: ", inp_wav.shape)
                 inp_wav2 = load_wav(root, args.file2)
                 print("Input wav2: ", inp_wav2.shape)
+                inp_wav3 = load_wav(root, args.random_wav_for_faces)
 
                 if inp_wav.shape[0] < inp_wav2.shape[0]:
                     inp_wav2 = inp_wav2[:inp_wav.shape[0]]
                 else:
                     inp_wav = inp_wav[:inp_wav2.shape[0]]
+                
+                if inp_wav.shape[0] < inp_wav3.shape[0]:
+                    inp_wav3 = inp_wav3[:inp_wav.shape[0]]
+                else:
+                    inp_wav = inp_wav[:inp_wav3.shape[0]]
+                    inp_wav2 = inp_wav2[:inp_wav3.shape[0]]
 
             except:
                 continue
@@ -247,7 +254,7 @@ def predict(args):
                 end_idx = start_idx + hp.hparams.wav_step_size
 
                 # Segment the wav (1 second window)
-                wav = inp_wav2[start_idx: end_idx]
+                wav = inp_wav3[start_idx: end_idx]
 
                 # Get the corresponding input noisy melspectrograms
                 spec_window = get_spec(wav)
@@ -258,7 +265,7 @@ def predict(args):
                 all_spec_batch.append(spec_window)
 
                 # Get the melspectrogram for lipsync model
-                mel_window = get_segmented_mels(start_idx, inp_wav2)
+                mel_window = get_segmented_mels(start_idx, inp_wav3)
                 if(mel_window is None):
                     skip = True
                     print("mel_window skip:", skip)
