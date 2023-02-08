@@ -211,7 +211,7 @@ def predict(args):
                 print("Input wav: ", inp_wav.shape)
                 inp_wav2 = load_wav(root, args.file2)
                 print("Input wav2: ", inp_wav2.shape)
-                inp_wav3 = load_wav(root, args.random_wav_for_faces)
+                inp_wav3 = load_wav("",args.random_wav_for_faces)
 
                 if inp_wav.shape[0] < inp_wav2.shape[0]:
                     inp_wav2 = inp_wav2[:inp_wav.shape[0]]
